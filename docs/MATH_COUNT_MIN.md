@@ -1,87 +1,87 @@
-# Count-Min Sketch — ریاضی
+# Count-Min Sketch
 
-منبع: Cormode, Muthukrishnan, *An Improved Data Stream Summary: The Count-Min Sketch and its Applications*, Journal of Algorithms, 2005.
+Source: Cormode, Muthukrishnan, *An Improved Data Stream Summary: The Count-Min Sketch and its Applications*, Journal of Algorithms, 2005.
 
-## مدل جریان
+## Stream model
 
-جریان `σ = (x₁, w₁), …` را در نظر بگیرید که هر `x` یک کلید و هر `w` وزن صحیح مثبت است. بگذارید
+Consider a cash-register stream $\sigma = (x_1, w_1), (x_2, w_2), \ldots$ where each $x$ is a key and each $w$ is a positive integer weight. Write
 
-\[
+$$
 N = \sum_t w_t, \qquad f(x) = \sum_{t: x_t = x} w_t.
-\]
+$$
 
-هدف برآورد `f(x)` با حافظهٔ مستقل از تعداد کلیدهای متمایز است.
+The goal is to estimate $f(x)$ with memory independent of the number of distinct keys.
 
-## ساختار
+## Structure
 
-ماتریس شمارنده `C` با `d` سطر و `w` ستون، همه ابتدا صفر. برای هر سطر `i ∈ {1,…,d}` یک تابع مستقل
+A counter matrix $C$ has $d$ rows and $w$ columns, all initially zero. For each row $i \in \{1,\ldots,d\}$ an independent hash
 
-\[
-h_i : \mathcal{U} \to \{0,\dots,w-1\}
-\]
+$$
+h_i : \mathcal{U} \to \{0,\ldots,w-1\}
+$$
 
-از خانوادهٔ ۲-universal (اینجا Carter–Wegman روی `p = 2^{61}-1`) کشیده می‌شود.
+is drawn from a 2-universal family (Carter–Wegman over $p = 2^{61}-1$ in Helion).
 
-**به‌روزرسانی.** برای رویداد `(x, w)`:
+**Update.** For an event $(x, w)$:
 
-\[
-C[i, h_i(x)] \leftarrow C[i, h_i(x)] + w \qquad \text{برای همهٔ } i.
-\]
+$$
+C[i, h_i(x)] \leftarrow C[i, h_i(x)] + w \qquad \text{for all } i.
+$$
 
-**برآورد.**
+**Estimate.**
 
-\[
-\hat f(x) = \min_{1 \le i \le d} C[i, h_i(x)].
-\]
+$$
+\hat{f}(x) = \min_{1 \le i \le d} C[i, h_i(x)].
+$$
 
-## قضیه
+## Theorem
 
-اگر
+If
 
-\[
+$$
 w = \left\lceil \frac{e}{\varepsilon} \right\rceil, \qquad d = \left\lceil \ln\frac{1}{\delta} \right\rceil,
-\]
+$$
 
-آن‌گاه برای هر کلید ثابت `x`، با احتمال حداقل `1−δ` روی انتخاب hashها:
+then for every fixed key $x$, with probability at least $1-\delta$ over the hash draws:
 
-\[
-f(x) \le \hat f(x) \le f(x) + \varepsilon N.
-\]
+$$
+f(x) \le \hat{f}(x) \le f(x) + \varepsilon N.
+$$
 
-نابرابری چپ **قطعی** است: هر بار که `x` می‌آید، همهٔ سلول‌های `h_i(x)` زیاد می‌شوند، پس هیچ برآوردی نمی‌تواند از فرکانس واقعی کمتر شود. خطا فقط بیش‌برآورد است.
+The left inequality is **deterministic**: every update of $x$ increments every cell $h_i(x)$, so an estimate cannot fall below the true frequency. Error is one-sided (overestimate only).
 
-## اثبات
+## Proof
 
-برای سطر ثابت `i` تعریف کنید
+For a fixed row $i$ define
 
-\[
+$$
 X_i = C[i, h_i(x)] - f(x) = \sum_{y \ne x} f(y) \cdot \mathbf{1}[h_i(y)=h_i(x)].
-\]
+$$
 
-چون خانواده ۲-universal است، `P(h_i(y)=h_i(x)) ≤ 1/w`. بنابراین
+2-universality gives $P(h_i(y)=h_i(x)) \le 1/w$, so
 
-\[
+$$
 \mathbb{E}[X_i] \le \frac{N - f(x)}{w} \le \frac{N}{w}.
-\]
+$$
 
-با انتخاب `w = ⌈e/ε⌉` داریم `E[X_i] ≤ εN/e`. نامساوی Markov:
+With $w = \lceil e/\varepsilon \rceil$ we have $\mathbb{E}[X_i] \le \varepsilon N / e$. Markov’s inequality:
 
-\[
+$$
 P(X_i \ge \varepsilon N) \le \frac{\mathbb{E}[X_i]}{\varepsilon N} \le \frac{1}{e}.
-\]
+$$
 
-سطرها مستقل‌اند، پس
+Rows are independent, so
 
-\[
-P\!\left(\bigcap_{i=1}^d \{X_i \ge \varepsilon N\}\right) \le e^{-d} \le \delta
-\]
+$$
+P\left(\bigcap_{i=1}^d \{X_i \ge \varepsilon N\}\right) \le e^{-d} \le \delta
+$$
 
-وقتی `d = ⌈ln(1/δ)⌉`. متمم این رویداد همان کران بالای قضیه است.
+when $d = \lceil \ln(1/\delta) \rceil$. The complement is the upper bound in the theorem.
 
-## محدودیت برای کلید داغ
+## Hot-key limitation
 
-CMS کلید را ذخیره نمی‌کند. برای Top-K باید ساختار کاندیدا (heap) یا الگوریتم دیگری مثل Space-Saving کنار آن ثبت شود. در Helion این کار با `Component` جدا انجام می‌شود، نه با تغییر خود CMS.
+Count-Min does not store keys. Top-K needs a candidate structure (heap) or a second algorithm such as Space-Saving. In Helion that is a separate `Component`, not a change inside CMS.
 
-## پارامترهای پیاده‌سازی Helion
+## Helion parameters
 
-کلاس `CountMinSketch(epsilon, delta)` دقیقاً `width = ceil(e/ε)` و `depth = ceil(ln(1/δ))` را می‌سازد. شمارنده‌ها `uint64` هستند.
+`CountMinSketch(epsilon, delta)` sets `width = ceil(e/ε)` and `depth = ceil(ln(1/δ))`. Counters are 64-bit unsigned integers in the Python reference and `long` in the Java production code.

@@ -1,63 +1,63 @@
-# Space-Saving — ریاضی
+# Space-Saving
 
-منبع: Metwally, Agrawal, Abbadi, *Efficient Computation of Frequent and Top-k Elements in Data Streams*, ICDT 2005 / ACM TODS.
+Source: Metwally, Agrawal, Abbadi, *Efficient Computation of Frequent and Top-k Elements in Data Streams*, ICDT 2005 / ACM TODS.
 
-## ساختار
+## Structure
 
-حداکثر `m` شمارنده. هر شمارنده یک کلید پایش‌شده `x`، مقدار `\hat f(x)`، و کران خطای موروثی `ε_x` دارد. پیاده‌سازی Helion همان Stream-Summary است: سطل‌های دوبل‌لینک‌شده بر حسب مقدار شمارنده، تا جایگزینی در زمان ثابت به‌ازای هر واحد وزن انجام شود.
+At most $m$ counters. Each counter stores a monitored key $x$, a value $\hat{f}(x)$, and an inherited error bound $\varepsilon_x$. Helion’s Java implementation indexes counters by count (`TreeMap`); the Python reference uses a Stream-Summary (doubly linked count buckets) so a replacement is $O(1)$ per unit weight.
 
-## الگوریتم
+## Algorithm
 
-برای رویداد کلید `x` با وزن ۱ (وزن `w` یعنی `w` بار تکرار همین گام):
+For a key $x$ of weight $1$ (weight $w$ repeats this step $w$ times):
 
-1. اگر `x` پایش می‌شود: شمارنده‌اش یک واحد زیاد می‌شود.
-2. اگر پایش نمی‌شود و هنوز ظرفیت خالی است: با شمارندهٔ ۱ و `ε_x = 0` وارد می‌شود.
-3. اگر ظرفیت پر است: یک کلید با کمینهٔ شمارنده حذف می‌شود. بگذارید آن کمینه `c_min` باشد. کلید جدید با مقدار `c_min + 1` و `ε_x = c_min` جایگزین می‌شود.
+1. If $x$ is monitored, increment its counter by one.
+2. If $x$ is not monitored and a slot is free, insert it with count $1$ and $\varepsilon_x = 0$.
+3. If the table is full, evict a key whose counter equals the current minimum $c_{\min}$. Insert the new key with value $c_{\min}+1$ and $\varepsilon_x = c_{\min}$.
 
-## ناورداها و قضایا
+## Invariants and theorems
 
-بگذارید `N` مجموع وزن‌های دیده‌شده باشد و `\hat f` مقدار شمارنده‌های فعلی.
+Let $N$ be the total weight seen so far and $\hat{f}$ the current counter values.
 
-**ناوردای مجموع.** در هر لحظه
+**Sum invariant.** At every time
 
-\[
-\sum_{\text{monitored } x} \hat f(x) = N.
-\]
+$$
+\sum_{\text{monitored } x} \hat{f}(x) = N.
+$$
 
-هر به‌روزرسانی دقیقاً یک واحد به مجموع شمارنده‌ها اضافه می‌کند (چه افزایش کلید موجود، چه درج، چه جایگزینی با `c_min+1` که کلید قبلی با `c_min` حذف شده).
+Every update adds exactly one to the sum of counters (increment, insert, or replace $c_{\min}$ by $c_{\min}+1$).
 
-**کران کمینه.** از ناوردای مجموع،
+**Minimum bound.** From the sum invariant,
 
-\[
-c_{\min} = \min_x \hat f(x) \le \frac{N}{m}.
-\]
+$$
+c_{\min} = \min_x \hat{f}(x) \le \frac{N}{m}.
+$$
 
-**بیش‌برآورد کنترل‌شده.** برای هر کلید پایش‌شده `x`
+**Controlled overestimate.** For every monitored key $x$
 
-\[
-f(x) \le \hat f(x) \le f(x) + \varepsilon_x \le f(x) + \frac{N}{m}.
-\]
+$$
+f(x) \le \hat{f}(x) \le f(x) + \varepsilon_x \le f(x) + \frac{N}{m}.
+$$
 
-چپ: شمارنده هرگز از فرکانس واقعی کمتر نیست، چون افزایش‌ها واقعی‌اند یا از `c_min` به ارث رسیده‌اند که خود کران بالای فرکانس کلیدهای غایب است. راست: خطای موروثی `ε_x` در لحظهٔ ورود برابر `c_min` همان لحظه است و `c_min ≤ N/m` در تمام زمان‌ها.
+Left: a counter is never below the true frequency, because increments are real or inherited from $c_{\min}$, which upper-bounds the frequency of any unmonitored key. Right: the inherited error $\varepsilon_x$ equals $c_{\min}$ at insertion time, and $c_{\min} \le N/m$ at all times.
 
-**تمامیت کلیدهای سنگین.** اگر `f(x) > N/m` آن‌گاه `x` حتماً پایش می‌شود. اگر غایب می‌بود، فرکانسش حداکثر `c_min ≤ N/m` می‌شد؛ تناقض.
+**Completeness of heavy keys.** If $f(x) > N/m$, then $x$ is monitored. Otherwise its frequency would be at most $c_{\min} \le N/m$, a contradiction.
 
-برای کلید غایب:
+For an unmonitored key:
 
-\[
+$$
 f(x) \le c_{\min} \le \frac{N}{m}.
-\]
+$$
 
-این الگوریتم **قطعی** است؛ δ در کار نیست.
+The algorithm is **deterministic**; there is no $\delta$.
 
-## اتصال به کلید داغ
+## Hot keys
 
-کلید را داغ بگیرید اگر `f(x) > φ N`. انتخاب کنید `ε < φ` و `m = ⌈1/ε⌉`. آن‌گاه `N/m ≤ ε N < φ N`، پس هر کلید با `f(x) > φ N` شرط `f(x) > N/m` را دارد و **false negative ندارد**.
+Call a key hot if $f(x) > \varphi N$. Choose $\varepsilon < \varphi$ and $m = \lceil 1/\varepsilon \rceil$. Then $N/m \le \varepsilon N < \varphi N$, so every key with $f(x) > \varphi N$ also satisfies $f(x) > N/m$ and **cannot be a false negative**.
 
-کلیدهایی با فرکانس نزدیک آستانه ممکن است به‌خاطر بیش‌برآورد به‌اشتباه داغ گزارش شوند. مثال عملی: `φ = 0.01`، `ε = 0.001` ⇒ حدود ۱۰۰۰ شمارنده، مستقل از cardinality.
+Keys near the threshold may still be reported as hot because of overestimate. Example: $\varphi = 0.01$, $\varepsilon = 0.001$ uses about $1000$ counters, independent of cardinality.
 
-`PhiHotKeyDetector` همین پارامترسازی را اعمال می‌کند.
+`PhiHotKeyDetector` applies this parameterization.
 
-## پنجره
+## Windows
 
-ضمانت بالا برای جریان بدون پنجره است. «داغ در ۵ دقیقهٔ اخیر» نیاز به component جدا برای tumbling/sliding/decay دارد؛ Space-Saving را عوض نکنید، یک لایهٔ پنجره جلوی آن بگذارید.
+The bounds above are for an unwindowed stream. “Hot in the last 5 minutes” needs a separate tumbling/sliding/decay component in front of Space-Saving. Do not fork the sketch class for that.
