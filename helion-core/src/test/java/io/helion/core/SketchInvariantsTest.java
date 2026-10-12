@@ -73,6 +73,14 @@ class SketchInvariantsTest {
   }
 
   @Test
+  void parseLineAcceptsWeightAndEventTime() {
+    HelionEvent event = HelionEvent.parseLine("k,3,42", 0);
+    assertEquals("k", event.key());
+    assertEquals(3L, event.weight());
+    assertEquals(42L, event.eventTimeMillis());
+  }
+
+  @Test
   void runtimeAcceptsExtraComponent() {
     CountingComponent probe = new CountingComponent();
     HelionRuntime runtime =

@@ -1,7 +1,6 @@
 package io.helion.core.sketch;
 
 import io.helion.core.HelionEvent;
-import io.helion.core.component.Component;
 import io.helion.core.hashing.CarterWegman;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,8 +11,11 @@ import java.util.Map;
  * <p>With {@code w = ceil(e/ε)} and {@code d = ceil(ln(1/δ))}, for every key x
  * {@code f(x) ≤ f̂(x) ≤ f(x) + ε N} holds with probability at least {@code 1−δ}.
  * The left inequality is deterministic (one-sided overestimate).
+ *
+ * <p>Two sketches with identical hash coefficients merge by cell-wise sum; the
+ * result is the Count-Min of the concatenated cash-register streams.
  */
-public final class CountMinSketch implements Component {
+public final class CountMinSketch implements MergeableSketch {
 
   private static final long serialVersionUID = 1L;
 
@@ -51,6 +53,18 @@ public final class CountMinSketch implements Component {
       a[i] = pair[0];
       b[i] = pair[1];
     }
+  }
+
+  private CountMinSketch(
+      String name, double epsilon, double delta, int width, int depth, long[] a, long[] b) {
+    this.name = name;
+    this.epsilon = epsilon;
+    this.delta = delta;
+    this.width = width;
+    this.depth = depth;
+    this.a = a.clone();
+    this.b = b.clone();
+    this.table = new long[depth][width];
   }
 
   @Override
@@ -94,6 +108,38 @@ public final class CountMinSketch implements Component {
 
   public double additiveSlack() {
     return epsilon * total;
+  }
+
+  public double epsilon() {
+    return epsilon;
+  }
+
+  public double delta() {
+    return delta;
+  }
+
+  @Override
+  public CountMinSketch emptyCopy() {
+    return new CountMinSketch(name, epsilon, delta, width, depth, a, b);
+  }
+
+  @Override
+  public void mergeFrom(MergeableSketch other) {
+    if (!(other instanceof CountMinSketch cms)) {
+      throw new IllegalArgumentException("Count-Min can only merge another Count-Min");
+    }
+    if (width != cms.width || depth != cms.depth || epsilon != cms.epsilon || delta != cms.delta) {
+      throw new IllegalArgumentException("Count-Min dimensions must match");
+    }
+    if (!java.util.Arrays.equals(a, cms.a) || !java.util.Arrays.equals(b, cms.b)) {
+      throw new IllegalArgumentException("Count-Min hash coefficients must match");
+    }
+    for (int row = 0; row < depth; row++) {
+      for (int col = 0; col < width; col++) {
+        table[row][col] += cms.table[row][col];
+      }
+    }
+    total += cms.total;
   }
 
   @Override

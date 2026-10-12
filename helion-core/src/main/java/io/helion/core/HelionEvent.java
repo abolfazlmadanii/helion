@@ -32,6 +32,31 @@ public final class HelionEvent implements Serializable {
     return new HelionEvent(key, 1L, System.currentTimeMillis(), Map.of());
   }
 
+  public static HelionEvent of(String key, long weight, long eventTimeMillis) {
+    return new HelionEvent(key, weight, eventTimeMillis, Map.of());
+  }
+
+  /**
+   * CSV: {@code key} | {@code key,weight} | {@code key,weight,eventTimeMillis}.
+   * Missing event time uses {@code fallbackEventTimeMillis}.
+   */
+  public static HelionEvent parseLine(String line, long fallbackEventTimeMillis) {
+    if (line == null || line.isBlank()) {
+      throw new IllegalArgumentException("event line is empty");
+    }
+    String[] parts = line.trim().split(",", 3);
+    String key = parts[0].trim();
+    if (parts.length == 1 || parts[1].isBlank()) {
+      return new HelionEvent(key, 1L, fallbackEventTimeMillis, Map.of());
+    }
+    long weight = Long.parseLong(parts[1].trim());
+    long time = fallbackEventTimeMillis;
+    if (parts.length == 3 && !parts[2].isBlank()) {
+      time = Long.parseLong(parts[2].trim());
+    }
+    return new HelionEvent(key, weight, time, Map.of());
+  }
+
   public String key() {
     return key;
   }

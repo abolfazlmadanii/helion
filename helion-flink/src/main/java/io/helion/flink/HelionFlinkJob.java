@@ -1,7 +1,10 @@
 package io.helion.flink;
 
 import io.helion.core.HelionEvent;
+import io.helion.core.HelionFactory;
 import io.helion.core.HotKeyAlert;
+import io.helion.core.component.Component;
+import java.util.List;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
@@ -14,7 +17,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 /**
  * Kafka → Helion (parallelism 1) → Kafka hot-key topic.
  *
- * <p>Input: {@code key} or {@code key,weight}. Extra Flink operators splice onto
+ * <p>Input: {@code key} | {@code key,weight} | {@code key,weight,eventTimeMillis}. Extra Flink operators splice onto
  * {@code events} before {@code process}. Additional Helion components go into
  * {@link HelionProcessFunction} via its extras list.
  */
@@ -29,6 +32,9 @@ public final class HelionFlinkJob {
     double epsilon = Double.parseDouble(envOr("HELION_EPSILON", "0.001"));
     double cmsEps = Double.parseDouble(envOr("HELION_CMS_EPSILON", "0.01"));
     double cmsDelta = Double.parseDouble(envOr("HELION_CMS_DELTA", "0.0001"));
+    long windowMs = Long.parseLong(envOr("HELION_WINDOW_MS", "86400000"));
+    long paneMs = Long.parseLong(envOr("HELION_PANE_MS", "3600000"));
+    List<Component> extras = List.of(HelionFactory.paneCountMin(cmsEps, cmsDelta, windowMs, paneMs));
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(10_000L);
@@ -49,7 +55,7 @@ public final class HelionFlinkJob {
 
     DataStream<HotKeyAlert> hotKeys =
         events
-            .process(new HelionProcessFunction(cmsEps, cmsDelta, phi, epsilon))
+            .process(new HelionProcessFunction(cmsEps, cmsDelta, phi, epsilon, extras))
             .setParallelism(1)
             .name("helion");
 
@@ -68,12 +74,7 @@ public final class HelionFlinkJob {
   }
 
   static HelionEvent parse(String line) {
-    String[] parts = line.trim().split(",", 2);
-    if (parts.length == 1 || parts[1].isBlank()) {
-      return HelionEvent.of(parts[0]);
-    }
-    return new HelionEvent(
-        parts[0], Long.parseLong(parts[1].trim()), System.currentTimeMillis(), java.util.Map.of());
+    return HelionEvent.parseLine(line, System.currentTimeMillis());
   }
 
   private static String envOr(String key, String fallback) {

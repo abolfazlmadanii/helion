@@ -1,5 +1,8 @@
 package io.helion.kafkastreams;
 
+import io.helion.core.HelionFactory;
+import io.helion.core.component.Component;
+import java.util.List;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
@@ -21,8 +24,11 @@ public final class HelionStreamsApp {
     double epsilon = Double.parseDouble(envOr("HELION_EPSILON", "0.001"));
     double cmsEps = Double.parseDouble(envOr("HELION_CMS_EPSILON", "0.01"));
     double cmsDelta = Double.parseDouble(envOr("HELION_CMS_DELTA", "0.0001"));
+    long windowMs = Long.parseLong(envOr("HELION_WINDOW_MS", "86400000"));
+    long paneMs = Long.parseLong(envOr("HELION_PANE_MS", "3600000"));
+    List<Component> extras = List.of(HelionFactory.paneCountMin(cmsEps, cmsDelta, windowMs, paneMs));
 
-    Topology topology = HelionTopology.hotKeys(input, output, cmsEps, cmsDelta, phi, epsilon);
+    Topology topology = HelionTopology.hotKeys(input, output, cmsEps, cmsDelta, phi, epsilon, extras);
 
     Properties props = new Properties();
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, envOr("HELION_APP_ID", "helion-streams"));

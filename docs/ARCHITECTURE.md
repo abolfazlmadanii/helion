@@ -9,9 +9,10 @@ Kafka topic
     │       parse → HelionProcessFunction (parallelism 1, operator state)
     │                    │
     │                    └─ HelionRuntime
-    │                         ├─ CountMinSketch
-    │                         ├─ SpaceSaving
+    │                         ├─ CountMinSketch (lifetime)
+    │                         ├─ SpaceSaving (lifetime; not pane-merged)
     │                         ├─ PhiHotKeyDetector
+    │                         ├─ PaneWindow → Count-Min per pane
     │                         └─ extras (Component)
     │
     └─ Kafka Streams: HelionStreamsApp
@@ -23,7 +24,7 @@ Kafka topic
 
 Space-Saving’s theorems are for **one** table over the whole stream. Splitting by key or by partition makes `N` local. Count-Min cells can be merged (same hash coefficients, cell-wise sum); Space-Saving merge is not the published theorem. Helion therefore pins the sketch operator to a single task.
 
-Windowed “last 5 minutes” is a future `Component` (tumbling state, decay). Do not fork the sketch classes for that.
+`PaneWindow` is a `Component` around a `MergeableSketch` prototype. Panes share hash coefficients via `emptyCopy()`. Do not fork Count-Min or Space-Saving to add expiry. Space-Saving stays lifetime-global: pane merge is not its published theorem.
 
 ## Adding a component
 

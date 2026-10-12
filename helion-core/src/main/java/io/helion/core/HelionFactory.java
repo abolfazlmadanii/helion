@@ -5,6 +5,7 @@ import io.helion.core.runtime.HelionRuntime;
 import io.helion.core.sketch.CountMinSketch;
 import io.helion.core.sketch.PhiHotKeyDetector;
 import io.helion.core.sketch.SpaceSaving;
+import io.helion.core.window.PaneWindow;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,5 +30,32 @@ public final class HelionFactory {
     all.add(new PhiHotKeyDetector(phi, ssEpsilon));
     all.addAll(extras);
     return new HelionRuntime(all);
+  }
+
+  /**
+   * Production bundle plus a pane-aligned Count-Min over {@code windowMillis}.
+   * Space-Saving and φ remain global (not windowed): their published merge is
+   * not the theorem used in Helion.
+   */
+  public static HelionRuntime production(
+      double cmsEpsilon,
+      double cmsDelta,
+      double phi,
+      double ssEpsilon,
+      long windowMillis,
+      long paneMillis,
+      List<Component> extras) {
+    List<Component> all = new ArrayList<>();
+    if (extras != null) {
+      all.addAll(extras);
+    }
+    all.add(paneCountMin(cmsEpsilon, cmsDelta, windowMillis, paneMillis));
+    return production(cmsEpsilon, cmsDelta, phi, ssEpsilon, all);
+  }
+
+  public static PaneWindow paneCountMin(
+      double cmsEpsilon, double cmsDelta, long windowMillis, long paneMillis) {
+    CountMinSketch proto = new CountMinSketch("count_min.window.prototype", cmsEpsilon, cmsDelta);
+    return new PaneWindow("count_min.window", proto, windowMillis, paneMillis);
   }
 }

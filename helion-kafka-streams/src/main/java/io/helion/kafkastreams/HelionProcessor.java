@@ -71,12 +71,9 @@ public final class HelionProcessor implements Processor<String, String, String, 
   }
 
   private static HelionEvent parse(Record<String, String> record) {
-    String key = record.key() != null ? record.key() : record.value();
     String value = record.value();
-    if (value != null && value.contains(",")) {
-      String[] parts = value.split(",", 2);
-      key = parts[0];
-      return new HelionEvent(key, Long.parseLong(parts[1].trim()), record.timestamp(), java.util.Map.of());
+    if (value != null && !value.isBlank()) {
+      return HelionEvent.parseLine(value, record.timestamp());
     }
     if (record.key() != null) {
       return new HelionEvent(record.key(), 1L, record.timestamp(), java.util.Map.of());
