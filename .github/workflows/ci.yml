@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  java:
+    name: Maven build (JDK 17)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      # Builds helion-core, helion-flink and helion-kafka-streams (root pom modules) and runs JUnit 5 tests.
+      - run: mvn -B -ntp verify
+
+  python-reference:
+    name: Reference Python (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reference/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # pyproject: requires-python >=3.11
+      - run: pip install -e '.[dev]'
+      - run: pytest -q
