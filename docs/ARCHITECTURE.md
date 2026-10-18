@@ -28,7 +28,7 @@ Space-Saving’s theorems are for **one** table over the whole stream. Splitting
 
 ## Adding a component
 
-1. Implement `io.helion.core.component.Component`.
+1. Implement `io.github.abolfazlmadanii.helion.core.component.Component`.
 2. Pass it in the extras list of `HelionFactory.production`, `HelionProcessFunction`, or `HelionTopology.hotKeys`.
 3. Checkpointing includes extras because they live inside the serialized `HelionRuntime`.
 

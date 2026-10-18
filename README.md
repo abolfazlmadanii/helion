@@ -57,7 +57,7 @@ helion-flink           ProcessFunction, operator state, Kafka source/sink job
 helion-kafka-streams   Processor API, changelog store, Streams app
 ```
 
-Attach extra operators with `io.helion.core.component.Component` on `HelionProcessFunction` or `HelionTopology.hotKeys(...)`.
+Attach extra operators with `io.github.abolfazlmadanii.helion.core.component.Component` on `HelionProcessFunction` or `HelionTopology.hotKeys(...)`.
 
 ## Build
 
