@@ -6,7 +6,7 @@ Helion production path is Java. Flink and Kafka Streams are thin engines around 
 Kafka topic
     │
     ├─ Flink: HelionFlinkJob
-    │       parse → HelionProcessFunction (parallelism 1, operator state)
+    │       parse (required event time) → watermarks → HelionProcessFunction (parallelism 1, operator state)
     │                    │
     │                    └─ HelionRuntime
     │                         ├─ CountMinSketch (lifetime)
@@ -34,5 +34,9 @@ Space-Saving’s theorems are for **one** table over the whole stream. Splitting
 
 ## State
 
-- Flink: `UnionListState<byte[]>` of Java-serialized `HelionRuntime`, restored on checkpoint.
-- Kafka Streams: persistent key-value store `helion-runtime-store` with changelog, Serde via Java serialization.
+- Flink: `UnionListState<byte[]>` of **versioned** `HelionRuntimeCodec` blobs (`HLRN` v1), restored on checkpoint. Late events (`eventTimeMillis` behind the watermark) go to side output `late-records`.
+- Kafka Streams: persistent key-value store `helion-runtime-store` with changelog, Serde via Java serialization (Flink codec first; see `docs/ADR-001-mergeable-state.md`).
+
+Event-time watermarks use bounded out-of-orderness (default 5 s, `HELION_MAX_OUT_OF_ORDER_MS`). CSV input for Flink is `key,weight,eventTimeMillis` with no wall-clock default.
+
+Two-phase local→global merge for mergeable sketches at parallelism > 1 is deferred; see ADR-001.
