@@ -17,7 +17,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 /**
  * Kafka → Helion (parallelism 1) → Kafka hot-key topic.
  *
- * <p>Input: {@code key} | {@code key,weight} | {@code key,weight,eventTimeMillis}. Extra Flink operators splice onto
+ * <p>Input: {@code key,weight,eventTimeMillis}. Extra Flink operators splice onto
  * {@code events} before {@code process}. Additional Helion components go into
  * {@link HelionProcessFunction} via its extras list.
  */
@@ -34,6 +34,8 @@ public final class HelionFlinkJob {
     double cmsDelta = Double.parseDouble(envOr("HELION_CMS_DELTA", "0.0001"));
     long windowMs = Long.parseLong(envOr("HELION_WINDOW_MS", "86400000"));
     long paneMs = Long.parseLong(envOr("HELION_PANE_MS", "3600000"));
+    long maxOutOfOrderMs =
+        Long.parseLong(envOr("HELION_MAX_OUT_OF_ORDER_MS", String.valueOf(HelionWatermarkStrategy.DEFAULT_MAX_OUT_OF_ORDER_MS)));
     List<Component> extras = List.of(HelionFactory.paneCountMin(cmsEps, cmsDelta, windowMs, paneMs));
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -51,6 +53,7 @@ public final class HelionFlinkJob {
     DataStream<HelionEvent> events =
         env.fromSource(source, WatermarkStrategy.noWatermarks(), "kafka-events")
             .map(HelionFlinkJob::parse)
+            .assignTimestampsAndWatermarks(HelionWatermarkStrategy.forEvents(maxOutOfOrderMs))
             .name("parse-events");
 
     DataStream<HotKeyAlert> hotKeys =
@@ -74,7 +77,7 @@ public final class HelionFlinkJob {
   }
 
   static HelionEvent parse(String line) {
-    return HelionEvent.parseLine(line, System.currentTimeMillis());
+    return HelionEvent.parseLineRequired(line);
   }
 
   private static String envOr(String key, String fallback) {

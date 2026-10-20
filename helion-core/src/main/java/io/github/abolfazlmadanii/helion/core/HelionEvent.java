@@ -37,6 +37,23 @@ public final class HelionEvent implements Serializable {
   }
 
   /**
+   * CSV: {@code key,weight,eventTimeMillis}. Event time is required (no wall-clock fallback).
+   */
+  public static HelionEvent parseLineRequired(String line) {
+    if (line == null || line.isBlank()) {
+      throw new IllegalArgumentException("event line is empty");
+    }
+    String[] parts = line.trim().split(",", 3);
+    if (parts.length < 3 || parts[2].isBlank()) {
+      throw new IllegalArgumentException("event time is required in CSV: key,weight,eventTimeMillis");
+    }
+    String key = parts[0].trim();
+    long weight = parts.length > 1 && !parts[1].isBlank() ? Long.parseLong(parts[1].trim()) : 1L;
+    long time = Long.parseLong(parts[2].trim());
+    return new HelionEvent(key, weight, time, Map.of());
+  }
+
+  /**
    * CSV: {@code key} | {@code key,weight} | {@code key,weight,eventTimeMillis}.
    * Missing event time uses {@code fallbackEventTimeMillis}.
    */

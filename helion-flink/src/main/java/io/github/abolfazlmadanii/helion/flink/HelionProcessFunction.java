@@ -3,14 +3,11 @@ package io.github.abolfazlmadanii.helion.flink;
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
 import io.github.abolfazlmadanii.helion.core.HelionFactory;
 import io.github.abolfazlmadanii.helion.core.HotKeyAlert;
+import io.github.abolfazlmadanii.helion.core.codec.HelionRuntimeCodec;
 import io.github.abolfazlmadanii.helion.core.component.Component;
 import io.github.abolfazlmadanii.helion.core.runtime.HelionRuntime;
 import io.github.abolfazlmadanii.helion.core.sketch.PhiHotKeyDetector;
 import io.github.abolfazlmadanii.helion.core.sketch.SpaceSavingEstimate;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.Collections;
 import java.util.List;
 import org.apache.flink.api.common.state.ListState;
@@ -21,15 +18,19 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 /**
  * Global hot-key operator. Run at parallelism 1 so Space-Saving sees the full
- * stream. Operator union list state checkpoints the serialized runtime.
+ * stream. Operator union list state checkpoints the versioned runtime codec.
  */
 public final class HelionProcessFunction extends ProcessFunction<HelionEvent, HotKeyAlert>
     implements CheckpointedFunction {
 
   private static final long serialVersionUID = 1L;
+
+  public static final OutputTag<HelionEvent> LATE_RECORDS_TAG =
+      new OutputTag<>("late-records") {};
 
   private final double cmsEpsilon;
   private final double cmsDelta;
@@ -74,6 +75,11 @@ public final class HelionProcessFunction extends ProcessFunction<HelionEvent, Ho
 
   @Override
   public void processElement(HelionEvent event, Context ctx, Collector<HotKeyAlert> out) {
+    long watermark = ctx.timerService().currentWatermark();
+    if (watermark != Long.MIN_VALUE && event.eventTimeMillis() < watermark) {
+      ctx.output(LATE_RECORDS_TAG, event);
+      return;
+    }
     runtime.ingest(event);
     PhiHotKeyDetector detector = (PhiHotKeyDetector) runtime.registry().get("phi_hot_keys");
     for (SpaceSavingEstimate row : detector.hotKeys()) {
@@ -82,21 +88,10 @@ public final class HelionProcessFunction extends ProcessFunction<HelionEvent, Ho
   }
 
   static byte[] serialize(HelionRuntime runtime) {
-    try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bos)) {
-      oos.writeObject(runtime);
-      oos.flush();
-      return bos.toByteArray();
-    } catch (Exception e) {
-      throw new IllegalStateException("checkpoint HelionRuntime", e);
-    }
+    return HelionRuntimeCodec.encode(runtime);
   }
 
   static HelionRuntime deserialize(byte[] blob) {
-    try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(blob))) {
-      return (HelionRuntime) ois.readObject();
-    } catch (Exception e) {
-      throw new IllegalStateException("restore HelionRuntime", e);
-    }
+    return HelionRuntimeCodec.decode(blob);
   }
 }
