@@ -1,7 +1,11 @@
 package io.github.abolfazlmadanii.helion.core.sketch;
 
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
+import io.github.abolfazlmadanii.helion.core.codec.BinaryCodec;
 import io.github.abolfazlmadanii.helion.core.component.Component;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -141,6 +145,37 @@ public final class SpaceSaving implements Component {
   @Override
   public void onEvent(HelionEvent event) {
     update(event.key(), event.weight());
+  }
+
+  public void encodeState(DataOutput out) throws IOException {
+    BinaryCodec.writeString(out, name);
+    out.writeInt(capacity);
+    out.writeLong(total);
+    out.writeInt(items.size());
+    for (Entry entry : items.values()) {
+      BinaryCodec.writeString(out, entry.key);
+      out.writeLong(entry.count);
+      out.writeLong(entry.error);
+    }
+  }
+
+  public static SpaceSaving decodeState(DataInput in) throws IOException {
+    String name = BinaryCodec.readString(in);
+    int capacity = in.readInt();
+    long total = in.readLong();
+    int entryCount = in.readInt();
+    if (entryCount < 0) {
+      throw new IOException("negative Space-Saving entry count");
+    }
+    SpaceSaving sketch = new SpaceSaving(name, capacity);
+    sketch.total = total;
+    for (int i = 0; i < entryCount; i++) {
+      String key = BinaryCodec.readString(in);
+      long count = in.readLong();
+      long error = in.readLong();
+      sketch.insert(key, count, error);
+    }
+    return sketch;
   }
 
   @Override

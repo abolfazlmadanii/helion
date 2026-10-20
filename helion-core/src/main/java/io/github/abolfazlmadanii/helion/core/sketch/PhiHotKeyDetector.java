@@ -1,7 +1,11 @@
 package io.github.abolfazlmadanii.helion.core.sketch;
 
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
+import io.github.abolfazlmadanii.helion.core.codec.BinaryCodec;
 import io.github.abolfazlmadanii.helion.core.component.Component;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +56,34 @@ public final class PhiHotKeyDetector implements Component {
 
   public SpaceSaving sketch() {
     return sketch;
+  }
+
+  public void encodeState(DataOutput out) throws IOException {
+    BinaryCodec.writeString(out, name);
+    out.writeDouble(phi);
+    out.writeDouble(epsilon);
+    sketch.encodeState(out);
+  }
+
+  public static PhiHotKeyDetector decodeState(DataInput in) throws IOException {
+    String name = BinaryCodec.readString(in);
+    double phi = in.readDouble();
+    double epsilon = in.readDouble();
+    SpaceSaving inner = SpaceSaving.decodeState(in);
+    return new PhiHotKeyDetector(name, phi, epsilon, inner);
+  }
+
+  private PhiHotKeyDetector(String name, double phi, double epsilon, SpaceSaving sketch) {
+    if (phi <= 0.0d || phi >= 1.0d) {
+      throw new IllegalArgumentException("phi must lie in (0, 1)");
+    }
+    if (epsilon <= 0.0d || epsilon >= phi) {
+      throw new IllegalArgumentException("epsilon must satisfy 0 < epsilon < phi");
+    }
+    this.name = name;
+    this.phi = phi;
+    this.epsilon = epsilon;
+    this.sketch = sketch;
   }
 
   @Override
