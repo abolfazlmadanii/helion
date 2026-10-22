@@ -1,8 +1,14 @@
 package io.github.abolfazlmadanii.helion.core.window;
 
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
+import io.github.abolfazlmadanii.helion.core.codec.BinaryCodec;
+import io.github.abolfazlmadanii.helion.core.codec.HelionCodecException;
 import io.github.abolfazlmadanii.helion.core.component.Component;
+import io.github.abolfazlmadanii.helion.core.sketch.CountMinSketch;
 import io.github.abolfazlmadanii.helion.core.sketch.MergeableSketch;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -199,6 +205,45 @@ public final class PaneWindow implements Component {
   private long paneStart(long eventTime) {
     long q = Math.floorDiv(eventTime, paneMillis);
     return q * paneMillis;
+  }
+
+  public void encodeState(DataOutput out) throws IOException {
+    BinaryCodec.writeString(out, name);
+    out.writeLong(windowMillis);
+    out.writeLong(paneMillis);
+    out.writeLong(maxEventTime);
+    if (!(prototype instanceof CountMinSketch prototypeCms)) {
+      throw new IOException("only Count-Min pane prototypes are supported in state codec");
+    }
+    prototypeCms.encodeState(out);
+    out.writeInt(panes.size());
+    for (Pane pane : panes) {
+      out.writeLong(pane.startMillis);
+      if (!(pane.sketch instanceof CountMinSketch paneCms)) {
+        throw new IOException("pane sketch must be Count-Min");
+      }
+      paneCms.encodeState(out);
+    }
+  }
+
+  public static PaneWindow decodeState(DataInput in) throws IOException {
+    String name = BinaryCodec.readString(in);
+    long windowMillis = in.readLong();
+    long paneMillis = in.readLong();
+    long maxEventTime = in.readLong();
+    CountMinSketch prototype = CountMinSketch.decodeState(in);
+    PaneWindow window = new PaneWindow(name, prototype, windowMillis, paneMillis);
+    window.maxEventTime = maxEventTime;
+    int paneCount = in.readInt();
+    if (paneCount < 0) {
+      throw new HelionCodecException("negative pane count");
+    }
+    for (int i = 0; i < paneCount; i++) {
+      long startMillis = in.readLong();
+      CountMinSketch sketch = CountMinSketch.decodeState(in);
+      window.panes.addLast(new Pane(startMillis, sketch));
+    }
+    return window;
   }
 
   @Override

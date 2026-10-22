@@ -5,14 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
 import io.github.abolfazlmadanii.helion.core.runtime.HelionRuntime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class HelionProcessFunctionCheckpointTest {
 
   @Test
-  void runtimeSurvivesJavaSerializationUsedByFlinkCheckpoints() {
+  void runtimeSurvivesVersionedCodecUsedByFlinkCheckpoints() {
     HelionRuntime original =
-        io.github.abolfazlmadanii.helion.core.HelionFactory.production(0.2, 0.1, 0.4, 0.2, 3_000L, 1_000L, java.util.List.of());
+        io.github.abolfazlmadanii.helion.core.HelionFactory.production(
+            0.2, 0.1, 0.4, 0.2, 3_000L, 1_000L, List.of());
     original.ingest(HelionEvent.of("hot", 1, 100));
     original.ingest(HelionEvent.of("hot", 1, 1_100));
     byte[] blob = HelionProcessFunction.serialize(original);

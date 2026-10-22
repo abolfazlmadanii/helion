@@ -1,7 +1,12 @@
 package io.github.abolfazlmadanii.helion.core.sketch;
 
 import io.github.abolfazlmadanii.helion.core.HelionEvent;
+import io.github.abolfazlmadanii.helion.core.codec.BinaryCodec;
+import io.github.abolfazlmadanii.helion.core.codec.HelionCodecException;
 import io.github.abolfazlmadanii.helion.core.hashing.CarterWegman;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -145,6 +150,47 @@ public final class CountMinSketch implements MergeableSketch {
   @Override
   public void onEvent(HelionEvent event) {
     update(event.key(), event.weight());
+  }
+
+  public void encodeState(DataOutput out) throws IOException {
+    BinaryCodec.writeString(out, name);
+    out.writeDouble(epsilon);
+    out.writeDouble(delta);
+    out.writeInt(width);
+    out.writeInt(depth);
+    BinaryCodec.writeLongArray(out, a);
+    BinaryCodec.writeLongArray(out, b);
+    BinaryCodec.writeLongMatrix(out, table);
+    out.writeLong(total);
+  }
+
+  public static CountMinSketch decodeState(DataInput in) throws IOException {
+    String name = BinaryCodec.readString(in);
+    double epsilon = in.readDouble();
+    double delta = in.readDouble();
+    int width = in.readInt();
+    int depth = in.readInt();
+    long[] a = BinaryCodec.readLongArray(in);
+    long[] b = BinaryCodec.readLongArray(in);
+    long[][] table = BinaryCodec.readLongMatrix(in);
+    long total = in.readLong();
+    if (a.length != depth || b.length != depth) {
+      throw new HelionCodecException("Count-Min hash depth mismatch");
+    }
+    if (table.length != depth) {
+      throw new HelionCodecException("Count-Min table depth mismatch");
+    }
+    for (long[] row : table) {
+      if (row.length != width) {
+        throw new HelionCodecException("Count-Min table width mismatch");
+      }
+    }
+    CountMinSketch sketch = new CountMinSketch(name, epsilon, delta, width, depth, a, b);
+    for (int row = 0; row < depth; row++) {
+      System.arraycopy(table[row], 0, sketch.table[row], 0, width);
+    }
+    sketch.total = total;
+    return sketch;
   }
 
   @Override

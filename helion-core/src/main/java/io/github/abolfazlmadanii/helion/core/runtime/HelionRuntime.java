@@ -46,6 +46,13 @@ public final class HelionRuntime implements Serializable {
     return totalWeight;
   }
 
+  /** Restores operator state from a versioned checkpoint blob. */
+  public static HelionRuntime rehydrate(long totalWeight, List<Component> components) {
+    HelionRuntime runtime = new HelionRuntime(components);
+    runtime.totalWeight = totalWeight;
+    return runtime;
+  }
+
   public Map<String, Map<String, Object>> snapshots() {
     Map<String, Map<String, Object>> out = new LinkedHashMap<>();
     for (Component component : registry) {
