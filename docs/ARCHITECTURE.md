@@ -1,42 +1,32 @@
 # Architecture
 
-Helion production path is Java. Flink and Kafka Streams are thin engines around `helion-core`.
+Helion is a Python library of mergeable sketches and a small component runtime. Stream engines attach in separate packages.
 
 ```
-Kafka topic
+Kafka topic (future: helion_flink / helion_quix)
     │
-    ├─ Flink: HelionFlinkJob
-    │       parse (required event time) → watermarks → HelionProcessFunction (parallelism 1, operator state)
-    │                    │
-    │                    └─ HelionRuntime
-    │                         ├─ CountMinSketch (lifetime)
-    │                         ├─ SpaceSaving (lifetime; not pane-merged)
-    │                         ├─ PhiHotKeyDetector
-    │                         ├─ PaneWindow → Count-Min per pane
-    │                         └─ extras (Component)
-    │
-    └─ Kafka Streams: HelionStreamsApp
-            HelionProcessor + persistent KV store (changelog)
-                    └─ same HelionRuntime
+    └─ HelionRuntime (in-process today)
+            ├─ CountMinSketch (lifetime)
+            ├─ SpaceSaving (lifetime; not pane-merged)
+            ├─ PhiHotKeyDetector
+            ├─ PaneWindow → Count-Min per pane
+            └─ extras (Component)
 ```
 
-## Why parallelism 1
+## Why single-task Space-Saving
 
-Space-Saving’s theorems are for **one** table over the whole stream. Splitting by key or by partition makes `N` local. Count-Min cells can be merged (same hash coefficients, cell-wise sum); Space-Saving merge is not the published theorem. Helion therefore pins the sketch operator to a single task.
+Space-Saving’s theorems are for **one** table over the whole stream. Count-Min cells merge when hash coefficients match. Space-Saving does not use the pane merge theorem Helion ships for Count-Min.
 
-`PaneWindow` is a `Component` around a `MergeableSketch` prototype. Panes share hash coefficients via `emptyCopy()`. Do not fork Count-Min or Space-Saving to add expiry. Space-Saving stays lifetime-global: pane merge is not its published theorem.
+`PaneWindow` wraps a `MergeableSketch` prototype. Panes share coefficients via `empty_copy()`. Space-Saving stays lifetime-global.
 
 ## Adding a component
 
-1. Implement `io.github.abolfazlmadanii.helion.core.component.Component`.
-2. Pass it in the extras list of `HelionFactory.production`, `HelionProcessFunction`, or `HelionTopology.hotKeys`.
-3. Checkpointing includes extras because they live inside the serialized `HelionRuntime`.
+1. Implement `helion.core.component.Component`.
+2. Register on `HelionRuntime` or pass through `HelionFactory.production`.
+3. Checkpointing includes extras inside `HelionRuntimeCodec` blobs.
 
 ## State
 
-- Flink: `UnionListState<byte[]>` of **versioned** `HelionRuntimeCodec` blobs (`HLRN` v1), restored on checkpoint. Late events (`eventTimeMillis` behind the watermark) go to side output `late-records`.
-- Kafka Streams: persistent key-value store `helion-runtime-store` with changelog, Serde via Java serialization (Flink codec first; see `docs/ADR-001-mergeable-state.md`).
-
-Event-time watermarks use bounded out-of-orderness (default 5 s, `HELION_MAX_OUT_OF_ORDER_MS`). CSV input for Flink is `key,weight,eventTimeMillis` with no wall-clock default.
-
-Two-phase local→global merge for mergeable sketches at parallelism > 1 is deferred; see ADR-001.
+- **Codec:** `HelionRuntimeCodec` writes `HLRN` v1 bytes (see `helion.codec`).
+- **Event time:** `StreamEvent.event_time_millis` drives pane expiry; engines will assign watermarks and late side outputs in `helion_flink`.
+- **Merge at scale:** two-phase local→global merge for Count-Min is planned with PyFlink keyed state.

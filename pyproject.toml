@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "helion"
+version = "0.1.0"
+description = "Streaming frequency sketches with proven error bounds"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.5.4,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "hypothesis>=6.170.8,<7",
+  "pytest>=9.1.1,<10",
+  "ruff>=0.17.2,<0.18",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["helion"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -84,4 +84,4 @@ Count-Min does not store keys. Top-K needs a candidate structure (heap) or a sec
 
 ## Helion parameters
 
-`CountMinSketch(epsilon, delta)` sets `width = ceil(e/ε)` and `depth = ceil(ln(1/δ))`. Counters are 64-bit unsigned integers in the Python reference and `long` in the Java production code.
+`CountMinSketch(epsilon, delta)` sets `width = ceil(e/ε)` and `depth = ceil(ln(1/δ))`. Counters are 64-bit unsigned integers (`array('Q')` in Python).

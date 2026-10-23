@@ -4,7 +4,7 @@ Source: Metwally, Agrawal, Abbadi, *Efficient Computation of Frequent and Top-k 
 
 ## Structure
 
-At most $m$ counters. Each counter stores a monitored key $x$, a value $\hat{f}(x)$, and an inherited error bound $\varepsilon_x$. Helion’s Java implementation indexes counters by count (`TreeMap`); the Python reference uses a Stream-Summary (doubly linked count buckets) so a replacement is $O(1)$ per unit weight.
+At most $m$ counters. Each counter stores a monitored key $x$, a value $\hat{f}(x)$, and an inherited error bound $\varepsilon_x$. Helion uses a Stream-Summary (doubly linked count buckets) so a replacement is $O(1)$ per unit weight.
 
 ## Algorithm
 
