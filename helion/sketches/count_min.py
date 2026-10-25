@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 import struct
 from array import array
 from collections.abc import Hashable, Mapping, Sequence
@@ -20,7 +21,7 @@ from helion.codec.binary import (
 )
 from helion.core.component import Component, ComponentContext
 from helion.core.events import StreamEvent
-from helion.core.hashing import carter_wegman, draw_cw_pair, key_to_uint
+from helion.core.hashing import carter_wegman, draw_cw_pair, draw_cw_pair_from_rng, key_to_uint
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +63,7 @@ class CountMinSketch(Component):
         delta: float = 1e-4,
         *,
         name: str = "count_min",
+        hash_seed: int | None = None,
     ) -> None:
         if epsilon <= 0:
             raise ValueError("epsilon must be positive")
@@ -72,7 +74,11 @@ class CountMinSketch(Component):
         self.delta = float(delta)
         self.width = math.ceil(math.e / self.epsilon)
         self.depth = math.ceil(math.log(1.0 / self.delta))
-        self._coeffs: list[tuple[int, int]] = [draw_cw_pair() for _ in range(self.depth)]
+        if hash_seed is None:
+            self._coeffs = [draw_cw_pair() for _ in range(self.depth)]
+        else:
+            rng = random.Random(hash_seed)
+            self._coeffs = [draw_cw_pair_from_rng(rng) for _ in range(self.depth)]
         self._table: list[array] = [
             array("Q", [0] * self.width) for _ in range(self.depth)
         ]

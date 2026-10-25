@@ -8,19 +8,23 @@ version = "0.1.0"
 description = "Streaming frequency sketches with proven error bounds"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = [
-  "numpy>=2.5.4,<3",
-]
+dependencies = []
 
 [project.optional-dependencies]
+flink = [
+  "apache-flink==2.2.1",
+  "numpy>=1.26.0,<2.2",
+]
 dev = [
   "hypothesis>=6.170.8,<7",
   "pytest>=9.1.1,<10",
   "ruff>=0.17.2,<0.18",
+  "apache-flink==2.2.1",
+  "numpy>=1.26.0,<2.2",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["helion"]
+packages = ["helion", "helion_flink"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

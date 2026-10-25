@@ -25,10 +25,11 @@ uv run pytest
 
 ```
 helion/           sketches, PaneWindow, Component SPI, versioned runtime codec
+helion_flink/     PyFlink 2.2.1 bounded replay job (watermarks, late routing, CMS merge)
 tests/            pytest suite
 ```
 
-PyFlink and quixstreams job wrappers are planned as `helion_flink` and `helion_quix` in a follow-on slice.
+`helion_quix` is planned in a follow-on slice. PyFlink replay tests need a JDK 17 runtime on `PATH` (`uv sync --extra flink`).
 
 ## Quick start
 

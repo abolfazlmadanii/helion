@@ -19,9 +19,11 @@ class HelionFactory:
         phi: float,
         ss_epsilon: float,
         extras: Iterable[Component] | None = None,
+        *,
+        cms_hash_seed: int | None = None,
     ) -> HelionRuntime:
         components: list[Component] = [
-            CountMinSketch(cms_epsilon, cms_delta),
+            CountMinSketch(cms_epsilon, cms_delta, hash_seed=cms_hash_seed),
             SpaceSaving(capacity=math.ceil(1.0 / ss_epsilon)),
             PhiHotKeyDetector(phi=phi, epsilon=ss_epsilon),
         ]

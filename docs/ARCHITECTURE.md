@@ -3,9 +3,14 @@
 Helion is a Python library of mergeable sketches and a small component runtime. Stream engines attach in separate packages.
 
 ```
-Kafka topic (future: helion_flink / helion_quix)
+Kafka topic (future) / from_collection (tests)
     │
-    └─ HelionRuntime (in-process today)
+    ├─ helion_flink (PyFlink 2.2.1)
+    │     ├─ bounded-out-of-orderness watermarks + late-record routing
+    │     ├─ global keyed ValueState → HelionRuntimeCodec bytes
+    │     └─ two-phase Count-Min: shard accumulate → global merge
+    │
+    └─ HelionRuntime (library / in-process)
             ├─ CountMinSketch (lifetime)
             ├─ SpaceSaving (lifetime; not pane-merged)
             ├─ PhiHotKeyDetector
@@ -28,5 +33,5 @@ Space-Saving’s theorems are for **one** table over the whole stream. Count-Min
 ## State
 
 - **Codec:** `HelionRuntimeCodec` writes `HLRN` v1 bytes (see `helion.codec`).
-- **Event time:** `StreamEvent.event_time_millis` drives pane expiry; engines will assign watermarks and late side outputs in `helion_flink`.
-- **Merge at scale:** two-phase local→global merge for Count-Min is planned with PyFlink keyed state.
+- **Event time:** `StreamEvent.event_time_millis` drives pane expiry; `helion_flink` assigns bounded-out-of-orderness watermarks and routes late records to a tagged side channel.
+- **Merge at scale:** `helion_flink` merges Count-Min in two phases (per-shard keyed state, then a global reduce) so estimates match a single-task reference at parallelism &gt; 1.

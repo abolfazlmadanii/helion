@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from collections.abc import Hashable
+from random import Random
 
 # Mersenne prime used by Carter–Wegman 2-universal hashing over Z_p.
 P61 = (1 << 61) - 1
@@ -25,6 +26,12 @@ def draw_cw_pair() -> tuple[int, int]:
     """Draw (a, b) for h(x) = ((a x + b) mod p) mod w with a ≠ 0."""
     a = secrets.randbelow(P61 - 1) + 1
     b = secrets.randbelow(P61)
+    return a, b
+
+
+def draw_cw_pair_from_rng(rng: Random) -> tuple[int, int]:
+    a = rng.randrange(1, P61)
+    b = rng.randrange(0, P61)
     return a, b
 
 
