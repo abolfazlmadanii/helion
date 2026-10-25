@@ -21,10 +21,14 @@ dev = [
   "ruff>=0.17.2,<0.18",
   "apache-flink==2.2.1",
   "numpy>=1.26.0,<2.2",
+  "quixstreams==3.28.1",
+]
+quix = [
+  "quixstreams==3.28.1",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["helion", "helion_flink"]
+packages = ["helion", "helion_flink", "helion_quix"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

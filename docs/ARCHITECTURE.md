@@ -10,6 +10,9 @@ Kafka topic (future) / from_collection (tests)
     │     ├─ global keyed ValueState → HelionRuntimeCodec bytes
     │     └─ two-phase Count-Min: shard accumulate → global merge
     │
+    ├─ helion_quix (Quix Streams 3.28)
+    │     └─ keyed state (per Kafka message key) → HelionRuntimeCodec bytes via stateful apply
+    │
     └─ HelionRuntime (library / in-process)
             ├─ CountMinSketch (lifetime)
             ├─ SpaceSaving (lifetime; not pane-merged)
