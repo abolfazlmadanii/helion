@@ -1,6 +1,8 @@
 # Helion
 
-Helion helps data engineers build **stream data pipelines**. Each model is a plug-in operator with a proven error bound, so you can add Count-Min, Space-Saving, pane windows, and later algorithms without rewriting the engine.
+Helion is a **Python 3.12** library for streaming frequency sketches with proven error bounds: Count-Min, Space-Saving, φ hot-key detection, and pane-aligned Count-Min windows. A small component runtime (`HelionRuntime`) composes operators; checkpoints use `HelionRuntimeCodec` (binary HLRN v1, not pickle).
+
+Optional packages wire the same runtime into **PyFlink 2.2.1** (`helion_flink`) and **Quix Streams 3.28** (`helion_quix`).
 
 | Algorithm | Type | Guarantee |
 |---|---|---|
@@ -10,29 +12,39 @@ Helion helps data engineers build **stream data pipelines**. Each model is a plu
 | φ hot keys | `PhiHotKeyDetector` | With \(\varepsilon < \varphi\), every key with \(f(x)>\varphi N\) is reported |
 | Pane window | `PaneWindow` | At most \(k=W/\Delta\) mergeable sketches; query is merge of retained panes |
 
-Math: [docs/MATH_COUNT_MIN.md](docs/MATH_COUNT_MIN.md), [docs/MATH_SPACE_SAVING.md](docs/MATH_SPACE_SAVING.md), [docs/MATH_PANE_WINDOW.md](docs/MATH_PANE_WINDOW.md). Layout: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Stack: [docs/ADR-010-python-stack.md](docs/ADR-010-python-stack.md).
+Further detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ADR-010-python-stack.md](docs/ADR-010-python-stack.md), and the math notes under `docs/MATH_*.md`.
 
-## Install
+## Quickstart with uv
 
-Python 3.12 and [uv](https://docs.astral.sh/uv/).
+Install [uv](https://docs.astral.sh/uv/), then from the repo root:
 
 ```bash
 uv sync --all-extras --dev
-uv run pytest
 ```
 
-## Library layout
+Core library only (no stream engines):
 
-```
-helion/           sketches, PaneWindow, Component SPI, versioned runtime codec
-helion_flink/     PyFlink 2.2.1 bounded replay job (watermarks, late routing, CMS merge)
-helion_quix/      Quix Streams 3.28 application with keyed HelionRuntimeCodec state
-tests/            pytest suite
+```bash
+uv sync
 ```
 
-PyFlink replay tests need a JDK 17 runtime on `PATH` (`uv sync --extra flink`). Quix tests use in-process replay (`uv sync --extra quix`).
+PyFlink or Quix only:
 
-## Quick start
+```bash
+uv sync --extra flink
+uv sync --extra quix
+```
+
+## Project layout
+
+```
+helion/           sketches, PaneWindow, HelionRuntime, HelionRuntimeCodec
+helion_flink/     bounded PyFlink job (watermarks, late routing, CMS merge)
+helion_quix/      Quix Streams Application with keyed runtime state
+tests/            pytest (library, Flink replay, Quix replay)
+```
+
+## Library usage
 
 ```python
 from helion import CountMinSketch, HelionRuntime, StreamEvent
@@ -42,8 +54,60 @@ runtime.push(StreamEvent("user-1", weight=1, event_time_millis=1_700_000_000_000
 print(runtime.snapshots())
 ```
 
-Operator checkpoints use `HelionRuntimeCodec.encode(runtime)`—explicit binary layout, not pickle.
+Pane windows keep Count-Min per pane; Space-Saving and φ stay lifetime-global. See [docs/MATH_PANE_WINDOW.md](docs/MATH_PANE_WINDOW.md).
 
-## Sliding window
+## PyFlink job (`helion_flink`)
 
-Pane-aligned windows merge Count-Min sketches per pane and drop the oldest pane on expiry. Space-Saving and φ remain lifetime-global. See [docs/MATH_PANE_WINDOW.md](docs/MATH_PANE_WINDOW.md).
+Bounded in-process replay (no Kafka): event-time watermarks, late-record routing, global `HelionRuntimeCodec` state, and a two-phase Count-Min merge validated at parallelism 1 and 2.
+
+```python
+from helion.core.events import StreamEvent
+from helion_flink import HelionJobConfig, run_bounded_job
+
+events = [
+    StreamEvent(key="k0", weight=2, event_time_millis=1_000),
+    StreamEvent(key="k1", weight=1, event_time_millis=1_100),
+]
+cfg = HelionJobConfig()
+result_bytes = run_bounded_job(events, parallelism=2, cfg=cfg)
+print(result_bytes.decode())
+```
+
+Install with `uv sync --extra flink` (pins `apache-flink==2.2.1`). PyFlink replay tests need the **PyFlink runtime** on `PATH`; they are skipped when it is missing.
+
+## Quix Streams app (`helion_quix`)
+
+Stateful `Application` with JSON values `{"key", "weight", "event_time_millis"}`. Kafka message keys partition `HelionRuntimeCodec` state.
+
+**Broker deployment:**
+
+```python
+from helion_quix import build_application
+
+app, sdf = build_application("localhost:9092", consumer_group="helion")
+# add sinks or branches on sdf, then:
+app.run()
+```
+
+**In-process replay (no broker):**
+
+```python
+from helion.core.events import StreamEvent
+from helion_quix import HelionQuixConfig, replay_events
+
+cfg = HelionQuixConfig()
+events = [StreamEvent("k0", weight=1, event_time_millis=1_000)]
+hot_lines, runtime_blob = replay_events(events, cfg)
+```
+
+Install with `uv sync --extra quix` (pins `quixstreams==3.28.1`).
+
+## Tests
+
+```bash
+uv sync --all-extras --dev
+uv run ruff check
+uv run pytest
+```
+
+The suite includes library tests, PyFlink bounded replay (parallelism 1 and 2), and Quix processor replay. CI uses the same commands on pushes to `week2-python-port` and on pull requests.
