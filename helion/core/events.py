@@ -7,7 +7,7 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class StreamEvent:
-    """One observation in a turnstile stream."""
+    """One observation in a cash-register (insert-only) stream."""
 
     key: Hashable
     weight: int = 1

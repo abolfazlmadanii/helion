@@ -1,4 +1,6 @@
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from helion.codec.runtime_codec import HelionRuntimeCodec
 from helion.core.events import StreamEvent
@@ -14,6 +16,55 @@ def ingest(window: PaneWindow, key: str, weight: int, time: int) -> None:
     from helion.core.component import ComponentContext
 
     window.on_event(StreamEvent(key=key, weight=weight, event_time_millis=time), ComponentContext())
+
+
+def test_closed_merge_refreshes_when_open_pane_advances_after_query():
+    proto = CountMinSketch(0.05, 0.01)
+    window = PaneWindow("w", proto.empty_copy(), WINDOW, PANE)
+    ingest(window, "a", 1, 100)
+    ingest(window, "b", 1, 1_100)
+    assert window.window_total() == 2
+    ingest(window, "c", 1, 2_100)
+    assert window.window_total() == 3
+
+
+def _retained_weight(events: list[StreamEvent], window: PaneWindow) -> int:
+    if window._max_event_time == -(2**63):
+        return 0
+    open_start = window._pane_start(window._max_event_time)
+    oldest_start = open_start - (window.max_panes() - 1) * window.pane_millis
+    total = 0
+    for event in events:
+        if event.event_time_millis > window._max_event_time:
+            continue
+        start = window._pane_start(event.event_time_millis)
+        if start < oldest_start:
+            continue
+        total += event.weight
+    return total
+
+
+@st.composite
+def stream_events(draw):
+    key = draw(st.text(min_size=1, max_size=3, alphabet="ab"))
+    weight = draw(st.integers(min_value=1, max_value=3))
+    time = draw(st.integers(min_value=0, max_value=20_000))
+    return StreamEvent(key=key, weight=weight, event_time_millis=time)
+
+
+@given(st.lists(stream_events(), min_size=1, max_size=25))
+def test_queries_mid_stream_match_retained_replay(events: list[StreamEvent]) -> None:
+    from helion.core.component import ComponentContext
+
+    proto = CountMinSketch(0.05, 0.01)
+    window = PaneWindow("w", proto.empty_copy(), WINDOW, PANE)
+    ctx = ComponentContext()
+    seen: list[StreamEvent] = []
+    for event in events:
+        seen.append(event)
+        window.on_event(event, ctx)
+        window.window_total()
+        assert window.window_total() == _retained_weight(seen, window)
 
 
 def test_merged_window_equals_replay_of_retained_events():

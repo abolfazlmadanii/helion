@@ -39,7 +39,7 @@ uv sync --extra quix
 
 ```
 helion/           sketches, PaneWindow, HelionRuntime, HelionRuntimeCodec
-helion_flink/     bounded PyFlink job (watermarks, late routing, CMS merge)
+helion_flink/     bounded PyFlink job (watermarks, late tagging, CMS merge)
 helion_quix/      Quix Streams Application with keyed runtime state
 tests/            pytest (library, Flink replay, Quix replay)
 ```
@@ -58,7 +58,7 @@ Pane windows keep Count-Min per pane; Space-Saving and φ stay lifetime-global. 
 
 ## PyFlink job (`helion_flink`)
 
-Bounded in-process replay (no Kafka): event-time watermarks, late-record routing, global `HelionRuntimeCodec` state, and a two-phase Count-Min merge validated at parallelism 1 and 2.
+Bounded in-process replay (no Kafka): event-time watermarks, late records tagged `late-records` and excluded from the main pipeline, global `HelionRuntimeCodec` state, and a two-phase Count-Min merge validated at parallelism 1 and 2.
 
 ```python
 from helion.core.events import StreamEvent
@@ -110,4 +110,4 @@ uv run ruff check
 uv run pytest
 ```
 
-The suite includes library tests, PyFlink bounded replay (parallelism 1 and 2), and Quix processor replay. CI uses the same commands on pushes to `week2-python-port` and on pull requests.
+The suite includes library tests, PyFlink bounded replay (parallelism 1 and 2), and Quix processor replay. CI runs on pushes to `main` and `week2-python-port`, and on pull requests.

@@ -1,5 +1,7 @@
 # Compatibility
 
-Helion targets **Python 3.12** with NumPy 2.x for sketch counter arrays.
+Helion targets **Python 3.12**. Core sketch counters use the standard library `array` module (no NumPy required).
 
-PyFlink **2.2.1** (Python 3.9–3.12) is the planned stream runtime; connector jars and JDK 17 remain part of that deployment story when `helion_flink` lands.
+Optional **`flink`** extra pins `apache-flink==2.2.1` and `numpy>=1.26,<2.2` for PyFlink. **`helion_flink`** provides the bounded replay job on that stack.
+
+Optional **`quix`** extra pins `quixstreams==3.28.1` for **`helion_quix`**.

@@ -46,9 +46,16 @@ class PaneWindow(Component):
 
     def on_event(self, event: StreamEvent, context: ComponentContext) -> None:
         t = event.event_time_millis
+        prior_max = self._max_event_time
         if t > self._max_event_time:
+            prior_open = (
+                self._pane_start(prior_max) if prior_max != -(2**63) else None
+            )
             self._max_event_time = t
             self._expire()
+            new_open = self._pane_start(self._max_event_time)
+            if prior_open is not None and prior_open != new_open:
+                self._closed_merge_valid = False
         start = self._pane_start(t)
         open_start = self._pane_start(self._max_event_time)
         oldest_start = open_start - (self._max_panes - 1) * self.pane_millis
